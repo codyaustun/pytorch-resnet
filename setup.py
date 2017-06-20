@@ -7,6 +7,11 @@ setup(
     author='Cody Austun Coleman',
     author_email='cody.coleman@cs.stanford.edu',
     packages=['resnet'],
+    entry_points={
+        'console_scripts': [
+            'resnet = resnet.train:main'
+        ]
+    },
     install_requires=[
         'torchvision',
     ]
