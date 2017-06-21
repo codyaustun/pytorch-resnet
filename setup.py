@@ -14,5 +14,7 @@ setup(
     },
     install_requires=[
         'torchvision',
+        'click',
+        'progressbar'
     ]
 )
