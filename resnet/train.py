@@ -9,13 +9,17 @@ from torchvision import datasets as dset
 from resnet.resnet import ResNet, Bottleneck
 
 
-def train(model, loader, criterion, optimizer):
+def train(model, loader, criterion, optimizer, use_cuda=False):
     bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     total = 0
     correct = 0
     for batch_index, (inputs, targets) in enumerate(loader):
         inputs = Variable(inputs)
         targets = Variable(targets)
+
+        if use_cuda:
+            inputs = inputs.cuda()
+            targets = targets.cuda()
 
         outputs = model(inputs)
         loss = criterion(outputs, targets)
@@ -25,14 +29,14 @@ def train(model, loader, criterion, optimizer):
 
         _, predictions = torch.max(outputs.data, 1)
         total += targets.size(0)
-        correct += predictions.eq(targets.data).sum()
+        correct += predictions.eq(targets.data).cpu().sum()
         print('Training accuracy of {}'.format((1.*correct) / total))
 
         bar.update(batch_index)
     print('Training accuracy of {}'.format((1.*correct) / total))
 
 
-def test(model, loader):
+def test(model, loader, use_cuda=False):
     bar = progressbar.ProgressBar(max_value=progressbar.UnknownLength)
     total = 0
     correct = 0
@@ -40,11 +44,15 @@ def test(model, loader):
         inputs = Variable(inputs)
         targets = Variable(targets)
 
+        if use_cuda:
+            inputs = inputs.cuda()
+            targets = targets.cuda()
+
         outputs = model(inputs)
 
         _, predictions = torch.max(outputs.data, 1)
         total += targets.size(0)
-        correct += predictions.eq(targets.data).sum()
+        correct += predictions.eq(targets.data).cpu().sum()
 
         bar.update(batch_index)
 
@@ -54,10 +62,11 @@ def test(model, loader):
 @click.command()
 @click.option('--dataset-dir', default='./data/cifar10')
 @click.option('--checkpoint-dir', '-c', default='./checkpoints')
+@click.option('--cuda', is_flag=True)
 @click.option('--epochs', '-e', default=200)
 @click.option('--batch-size', '-b', default=32)
 @click.option('--learning-rate', '-l', default=1e-3)
-def main(dataset_dir, checkpoint_dir, epochs, batch_size, learning_rate):
+def main(dataset_dir, checkpoint_dir, cuda, epochs, batch_size, learning_rate):
     print("Preparing data:")
     transform_train = transforms.Compose([
         transforms.ToTensor()
@@ -76,8 +85,16 @@ def main(dataset_dir, checkpoint_dir, epochs, batch_size, learning_rate):
     test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                               shuffle=False)
 
+    use_cuda = cuda or torch.cuda.is_available()
+
     print('Building model')
     model = ResNet(Bottleneck, [3, 4, 6, 3], num_classes=10)
+
+    if use_cuda:
+        print('Copying model to GPU')
+        model.cuda()
+        model = torch.nn.DataParallel(
+            model, device_ids=range(torch.cuda.device_count()))
     criterion = nn.CrossEntropyLoss()
 
     # Other parameters?
@@ -85,8 +102,8 @@ def main(dataset_dir, checkpoint_dir, epochs, batch_size, learning_rate):
 
     for epoch in range(1, epochs + 1):
         print('Epoch {} of {}'.format(epoch, epochs))
-        train(model, train_loader, criterion, optimizer)
-        test(model, test_loader)
+        train(model, train_loader, criterion, optimizer, use_cuda=use_cuda)
+        test(model, test_loader, use_cuda=use_cuda)
 
 
 if __name__ == '__main__':
