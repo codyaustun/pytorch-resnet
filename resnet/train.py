@@ -183,8 +183,8 @@ def main(dataset_dir, checkpoint_dir, restore, tracking, cuda, epochs,
     # Other parameters?
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    for epoch in range(start_epoch, start_epoch + epochs + 1):
-        print('Epoch {} of {}'.format(epoch, start_epoch + epochs))
+    for epoch in range(start_epoch, start_epoch + epochs):
+        print('Epoch {} of {}'.format(epoch, start_epoch + epochs - 1))
         train(epoch, model, train_loader, criterion, optimizer,
               use_cuda=use_cuda, tracking=train_results_file)
         accuracy = test(epoch, model, test_loader, use_cuda=use_cuda,
