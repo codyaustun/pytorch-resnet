@@ -194,6 +194,7 @@ def main(dataset_dir, checkpoint_dir, restore, tracking, cuda, epochs,
             print('New best model!')
             save(model, checkpoint_dir, epoch, accuracy, use_cuda=use_cuda,
                  filename='checkpoint_best_model.t7')
+            best_accuracy = accuracy
         save(model, checkpoint_dir, epoch, accuracy, use_cuda=use_cuda)
 
     print('Finished training')
