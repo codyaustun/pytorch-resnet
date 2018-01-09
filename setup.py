@@ -9,12 +9,13 @@ setup(
     packages=['resnet'],
     entry_points={
         'console_scripts': [
-            'resnet = resnet.train:main'
+            'cifar10 = resnet.cifar10.__main__:cli',
+            'imagenet = resnet.imagenet.__main__:cli'
         ]
     },
     install_requires=[
+        'tqdm',
         'torchvision',
         'click',
-        'progressbar2'
     ]
 )
