@@ -59,3 +59,9 @@ def save_config(config, run_dir):
     with open(path, 'w') as config_file:
         json.dump(config, config_file)
         config_file.write('\n')
+
+
+def get_learning_rate(optimizer):
+    for group in optimizer.param_groups:
+        if 'lr' in group:
+            return group['lr']

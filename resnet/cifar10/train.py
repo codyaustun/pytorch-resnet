@@ -9,6 +9,7 @@ import numpy as np
 from torch import nn, optim
 from torch.autograd import Variable
 from torch.utils.data.sampler import SubsetRandomSampler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision import transforms
 from torchvision import datasets
 
@@ -164,6 +165,9 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--momentum', default=0.9)
 @click.option('--optimizer', '-o', type=click.Choice(['sgd', 'adam', 'yellowfin']),
               default='sgd')
+@click.option('--schedule/--no-schedule', default=False)
+@click.option('--patience', default=10)
+@click.option('--decay-factor', default=0.1)
 @click.option('--augmentation/--no-augmentation', default=True)
 @click.option('device_ids', '--device', '-d', multiple=True, type=int)
 @click.option('--num-workers', type=int)
@@ -175,7 +179,8 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
 def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
-          batch_size, learning_rate, lr_factor, momentum, optimizer, augmentation,
+          batch_size, learning_rate, lr_factor, momentum, optimizer,
+          schedule, patience, decay_factor, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
           half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
@@ -333,13 +338,17 @@ def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
     end_epoch = start_epoch + epochs
     # YellowFin doesn't have param_groups causing AttributeError
     if not isinstance(optimizer, YFOptimizer):
-        for group in optimizer.param_groups:
-            if 'lr' in group:
-                print('Learning rate set to {}'.format(group['lr']))
-                assert group['lr'] == learning_rate
+        _lr_optimizer = utils.get_learning_rate(optimizer)
+        if _lr_optimizer is not None:
+            print('Learning rate set to {}'.format(_lr_optimizer))
+            assert _lr_optimizer == learning_rate
     else:
         print(f"set lr_factor to {lr_factor}")
         optimizer.set_lr_factor(lr_factor)
+
+    if schedule:
+        scheduler = ReduceLROnPlateau(optimizer, 'max', factor=decay_factor,
+                                      verbose=True, patience=patience)
     for epoch in range(start_epoch, end_epoch):
         run(epoch, model, train_loader, criterion, optimizer,
             use_cuda=use_cuda, tracking=train_results_file, train=True,
@@ -347,6 +356,16 @@ def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
 
         valid_acc = run(epoch, model, valid_loader, use_cuda=use_cuda,
                         tracking=valid_results_file, train=False, half=half)
+        if schedule:
+            prev_learning_rate = utils.get_learning_rate(optimizer)
+            scheduler.step(valid_acc)
+            new_learning_rate = utils.get_learning_rate(optimizer)
+            if prev_learning_rate != new_learning_rate:
+                timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
+                config['timestamp'] = timestamp
+                config['learning_rate'] = new_learning_rate
+                config['next_epoch'] = epoch + 1
+                utils.save_config(config, run_dir)
 
         is_best = valid_acc > best_accuracy
         last_epoch = epoch == (end_epoch - 1)
