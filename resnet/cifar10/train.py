@@ -168,6 +168,7 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--schedule/--no-schedule', default=False)
 @click.option('--patience', default=10)
 @click.option('--decay-factor', default=0.1)
+@click.option('--min-lr', default=1e-7)
 @click.option('--augmentation/--no-augmentation', default=True)
 @click.option('device_ids', '--device', '-d', multiple=True, type=int)
 @click.option('--num-workers', type=int)
@@ -180,7 +181,7 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
               default='resnet20')
 def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
           batch_size, learning_rate, lr_factor, momentum, optimizer,
-          schedule, patience, decay_factor, augmentation,
+          schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
           half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
@@ -360,6 +361,10 @@ def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
             prev_learning_rate = utils.get_learning_rate(optimizer)
             scheduler.step(valid_acc)
             new_learning_rate = utils.get_learning_rate(optimizer)
+
+            if new_learning_rate <= min_lr:
+                return 0
+
             if prev_learning_rate != new_learning_rate:
                 timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
                 config['timestamp'] = timestamp
