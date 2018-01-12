@@ -157,6 +157,7 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
               default='last')
 @click.option('--restore', '-r')
 @click.option('--tracking/--no-tracking', default=True)
+@click.option('--track-test-acc/--no-track-test-acc', default=True)
 @click.option('--cuda/--no-cuda', default=True)
 @click.option('--epochs', '-e', default=200)
 @click.option('--batch-size', '-b', default=32)
@@ -179,8 +180,8 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--half', is_flag=True)
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
-def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
-          batch_size, learning_rate, lr_factor, momentum, optimizer,
+def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
+          epochs, batch_size, learning_rate, lr_factor, momentum, optimizer,
           schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
           half, arch):
@@ -357,6 +358,11 @@ def train(dataset_dir, checkpoint, restore, tracking, cuda, epochs,
 
         valid_acc = run(epoch, model, valid_loader, use_cuda=use_cuda,
                         tracking=valid_results_file, train=False, half=half)
+
+        if validation != 0 and track_test_acc:
+            run(epoch, model, test_loader, use_cuda=use_cuda,
+                tracking=test_results_file, train=False)
+
         if schedule:
             prev_learning_rate = utils.get_learning_rate(optimizer)
             scheduler.step(valid_acc)
