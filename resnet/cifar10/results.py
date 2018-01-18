@@ -45,27 +45,42 @@ def load_data(directory, verbose=True):
         print(train_file)
         print("Training results shape: {}".format(train.shape))
 
+    valid_file = os.path.join(directory, 'valid_results.csv')
+    valid = load_file(valid_file, start_timestamp=start_timestamp)
+
+    if verbose:
+        print(valid_file)
+        print("Validation results shape: {}".format(valid.shape))
+
     try:
         test_file = os.path.join(directory, 'test_results.csv')
         test = load_file(test_file, start_timestamp=start_timestamp)
-    except FileNotFoundError:
-        test_file = os.path.join(directory, 'valid_results.csv')
-        test = load_file(test_file, start_timestamp=start_timestamp)
 
-    if verbose:
-        print(test_file)
-        print('Test results shape: {}'.format(test.shape))
+        if verbose:
+            print(test_file)
+            print('Test results shape: {}'.format(test.shape))
+    except FileNotFoundError:
+        test = None
+
 
     train['mode'] = 'train'
-    test['mode'] = 'test'
+    valid['mode'] = 'valid'
 
-    combined = pd.concat([train, test], ignore_index=True).sort_values(by=['timestamp'])
+    if test is not None:
+        test['mode'] = 'test'
+
+    combined = pd.concat([train, valid, test], ignore_index=True).sort_values(by=['timestamp'])
     combined['prev_timestamp'] = combined['timestamp'].shift(1)
     combined.loc[0, 'prev_timestamp'] = combined.loc[0, 'timestamp'] - combined.loc[0, 'batch_duration']
     train = combined[combined['mode'] == 'train'].copy()
-    test = combined[combined['mode'] == 'test'].copy()
+    valid = combined[combined['mode'] == 'valid'].copy()
 
-    return single_run_acc(train), single_run_acc(test)
+    if test is not None:
+        test = combined[combined['mode'] == 'test'].copy()
+    else:
+        test = combined[combined['mode'] == 'valid'].copy()
+
+    return single_run_acc(train), single_run_acc(valid), single_run_acc(test)
 
 
 def load_multiple(directory, timestamps=None, verbose=False):
@@ -74,7 +89,7 @@ def load_multiple(directory, timestamps=None, verbose=False):
     test_sets = []
     for timestamp in sorted(timestamps):
         _dir = os.path.join(directory, timestamp)
-        train, test = load_data(_dir, verbose=verbose)
+        train, valid, test = load_data(_dir, verbose=verbose)
         if verbose:
             print()
         train['run'] = _dir
