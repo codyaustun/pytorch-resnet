@@ -217,7 +217,9 @@ def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         assert restored_state['arch'] == arch
 
         model.load_state_dict(restored_state['model'])
-        optimizer.load_state_dict(restored_state['optimizer'])
+
+        if 'optimizer' in restored_state:
+            optimizer.load_state_dict(restored_state['optimizer'])
         if not isinstance(optimizer, YFOptimizer):
             for group in optimizer.param_groups:
                 group['lr'] = learning_rate
@@ -232,7 +234,7 @@ def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
 
     print('Starting accuracy is {}'.format(best_accuracy))
 
-    if not os.path.exists(run_dir):
+    if not os.path.exists(run_dir) and run_dir != '':
         os.makedirs(run_dir)
     utils.save_config(config, run_dir)
 
