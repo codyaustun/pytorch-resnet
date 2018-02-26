@@ -31,6 +31,7 @@ MODELS = {
 
         # "Wide Residual Networks"
         'wrn-40-4': resnet.WRN_40_4,
+        'wrn-16-4': resnet.WRN_16_4,
         'wrn-16-8': resnet.WRN_16_8,
         'wrn-28-10': resnet.WRN_28_10,
 

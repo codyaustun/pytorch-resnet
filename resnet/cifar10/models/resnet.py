@@ -435,9 +435,12 @@ def WRN_40_4():
     return WRN(40, 4)
 
 
+def WRN_16_4():
+    return WRN(16, 4)
+
+
 def WRN_16_8():
     return WRN(16, 8)
-
 
 def WRN_28_10():
     return WRN(28, 10)
