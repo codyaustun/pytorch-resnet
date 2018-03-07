@@ -151,6 +151,57 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
     return accuracies[0].avg
 
 
+def create_graph(arch, timestamp, optimizer, restore,
+                 learning_rate=None,
+                 momentum=None,
+                 weight_decay=None):
+    # create model
+    model = MODELS[arch]()
+
+    # create optimizer
+    if optimizer == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    elif optimizer == 'sgd':
+        optimizer = optim.SGD(model.parameters(), lr=learning_rate,
+                              momentum=momentum,
+                              weight_decay=weight_decay)
+    else:
+        raise NotImplementedError("Unknown optimizer: {}".format(optimizer))
+
+    if restore is not None:
+        if restore == 'latest':
+            restore = utils.latest_file(arch)
+        print(f'Restoring model from {restore}')
+        assert os.path.exists(restore)
+        restored_state = torch.load(restore)
+        assert restored_state['arch'] == arch
+
+        model.load_state_dict(restored_state['model'])
+
+        if 'optimizer' in restored_state:
+            optimizer.load_state_dict(restored_state['optimizer'])
+            for group in optimizer.param_groups:
+                group['lr'] = learning_rate
+
+        best_accuracy = restored_state['accuracy']
+        start_epoch = restored_state['epoch'] + 1
+        run_dir = os.path.split(restore)[0]
+    else:
+        best_accuracy = 0.0
+        start_epoch = 1
+        run_dir = f"./run/{arch}/{timestamp}"
+
+    print('Starting accuracy is {}'.format(best_accuracy))
+
+    if not os.path.exists(run_dir) and run_dir != '':
+        os.makedirs(run_dir)
+
+    print(model)
+    print("{} parameters".format(utils.count_parameters(model)))
+    print(f"Run directory set to {run_dir}")
+    return run_dir, start_epoch, best_accuracy, model, optimizer
+
+
 @click.group(invoke_without_command=True)
 @click.option('--dataset-dir', default='./data/cifar10')
 @click.option('--checkpoint', '-c', type=click.Choice(['best', 'all', 'last']),
@@ -201,51 +252,12 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
 
     use_cuda = cuda and torch.cuda.is_available()
 
-    # create model
-    model = MODELS[arch]()
+    run_dir, start_epoch, best_accuracy, model, optimizer = create_graph(
+        arch, timestamp, optimizer, restore,
+        learning_rate=learning_rate, momentum=momentum,
+        weight_decay=weight_decay)
 
-    # create optimizer
-    if optimizer == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    elif optimizer == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=learning_rate,
-                              momentum=momentum,
-                              weight_decay=weight_decay)
-    else:
-        raise NotImplementedError("Unknown optimizer: {}".format(optimizer))
-
-    if restore is not None:
-        if restore == 'latest':
-            restore = utils.latest_file(arch)
-        print(f'Restoring model from {restore}')
-        assert os.path.exists(restore)
-        restored_state = torch.load(restore)
-        assert restored_state['arch'] == arch
-
-        model.load_state_dict(restored_state['model'])
-
-        if 'optimizer' in restored_state:
-            optimizer.load_state_dict(restored_state['optimizer'])
-            for group in optimizer.param_groups:
-                group['lr'] = learning_rate
-
-        best_accuracy = restored_state['accuracy']
-        start_epoch = restored_state['epoch'] + 1
-        run_dir = os.path.split(restore)[0]
-    else:
-        best_accuracy = 0.0
-        start_epoch = 1
-        run_dir = f"./run/{arch}/{timestamp}"
-
-    print('Starting accuracy is {}'.format(best_accuracy))
-
-    if not os.path.exists(run_dir) and run_dir != '':
-        os.makedirs(run_dir)
     utils.save_config(config, run_dir)
-
-    print(model)
-    print("{} parameters".format(utils.count_parameters(model)))
-    print(f"Run directory set to {run_dir}")
 
     # Save model text description
     with open(os.path.join(run_dir, 'model.txt'), 'w') as file:
