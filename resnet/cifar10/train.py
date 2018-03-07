@@ -151,7 +151,7 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
     return accuracies[0].avg
 
 
-@click.command()
+@click.group(invoke_without_command=True)
 @click.option('--dataset-dir', default='./data/cifar10')
 @click.option('--checkpoint', '-c', type=click.Choice(['best', 'all', 'last']),
               default='last')
@@ -181,14 +181,22 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--half', is_flag=True)
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
-def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
+@click.pass_context
+def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
           epochs, batch_size, learning_rates, momentum, optimizer,
           schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
           half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
     local_timestamp = str(datetime.now())
-    config = {k: v for k, v in locals().items()}
+    config = {k: v for k, v in locals().items() if k != 'ctx'}
+
+    if ctx.invoked_subcommand is not None:
+        click.echo('I am about to invoke %s' % ctx.invoked_subcommand)
+        for k, v in config.items():
+            ctx.obj[k] = v
+        return 0
+
     learning_rate = learning_rates[0]
 
     use_cuda = cuda and torch.cuda.is_available()
