@@ -14,7 +14,6 @@ from torchvision import transforms
 from torchvision import datasets
 
 from resnet import utils
-from resnet.yellowfin import YFOptimizer
 from resnet.cifar10.models import resnet, densenet
 
 MEAN = (0.4914, 0.4822, 0.4465)
@@ -160,12 +159,13 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--tracking/--no-tracking', default=True)
 @click.option('--track-test-acc/--no-track-test-acc', default=True)
 @click.option('--cuda/--no-cuda', default=True)
-@click.option('--epochs', '-e', default=200)
+@click.option('--epochs', '-e', multiple=True, default=[200],
+              type=int)
 @click.option('--batch-size', '-b', default=32)
-@click.option('--learning-rate', '-l', default=1e-3)
-@click.option('--lr-factor', default=1.0, help='only for yellowfin')
+@click.option('--learning-rates', '-l', multiple=True, default=[1e-3],
+              type=float)
 @click.option('--momentum', default=0.9)
-@click.option('--optimizer', '-o', type=click.Choice(['sgd', 'adam', 'yellowfin']),
+@click.option('--optimizer', '-o', type=click.Choice(['sgd', 'adam']),
               default='sgd')
 @click.option('--schedule/--no-schedule', default=False)
 @click.option('--patience', default=10)
@@ -182,13 +182,14 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
 def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
-          epochs, batch_size, learning_rate, lr_factor, momentum, optimizer,
+          epochs, batch_size, learning_rates, momentum, optimizer,
           schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
           half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
     local_timestamp = str(datetime.now())
     config = {k: v for k, v in locals().items()}
+    learning_rate = learning_rates[0]
 
     use_cuda = cuda and torch.cuda.is_available()
 
@@ -202,10 +203,6 @@ def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         optimizer = optim.SGD(model.parameters(), lr=learning_rate,
                               momentum=momentum,
                               weight_decay=weight_decay)
-    elif optimizer == 'yellowfin':
-        optimizer = YFOptimizer(model.parameters(), lr=learning_rate,
-                                mu=momentum, weight_decay=weight_decay)
-
     else:
         raise NotImplementedError("Unknown optimizer: {}".format(optimizer))
 
@@ -221,7 +218,6 @@ def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
 
         if 'optimizer' in restored_state:
             optimizer.load_state_dict(restored_state['optimizer'])
-        if not isinstance(optimizer, YFOptimizer):
             for group in optimizer.param_groups:
                 group['lr'] = learning_rate
 
@@ -340,67 +336,69 @@ def train(dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         print('Using test dataset for validation')
         valid_loader = test_loader
 
-    end_epoch = start_epoch + epochs
-    # YellowFin doesn't have param_groups causing AttributeError
-    if not isinstance(optimizer, YFOptimizer):
+    for nepochs, learning_rate in zip(epochs, learning_rates):
+        end_epoch = start_epoch + nepochs
+        for group in optimizer.param_groups:
+            group['lr'] = learning_rate
         _lr_optimizer = utils.get_learning_rate(optimizer)
         if _lr_optimizer is not None:
             print('Learning rate set to {}'.format(_lr_optimizer))
             assert _lr_optimizer == learning_rate
-    else:
-        print(f"set lr_factor to {lr_factor}")
-        optimizer.set_lr_factor(lr_factor)
-
-    if schedule:
-        scheduler = ReduceLROnPlateau(optimizer, 'max', factor=decay_factor,
-                                      verbose=True, patience=patience)
-    for epoch in range(start_epoch, end_epoch):
-        run(epoch, model, train_loader, criterion, optimizer,
-            use_cuda=use_cuda, tracking=train_results_file, train=True,
-            half=half)
-
-        valid_acc = run(epoch, model, valid_loader, use_cuda=use_cuda,
-                        tracking=valid_results_file, train=False, half=half)
-
-        if validation != 0 and track_test_acc:
-            run(epoch, model, test_loader, use_cuda=use_cuda,
-                tracking=test_results_file, train=False)
 
         if schedule:
-            prev_learning_rate = utils.get_learning_rate(optimizer)
-            scheduler.step(valid_acc)
-            new_learning_rate = utils.get_learning_rate(optimizer)
+            scheduler = ReduceLROnPlateau(
+                optimizer, 'max', factor=decay_factor,
+                verbose=True, patience=patience)
+        for epoch in range(start_epoch, end_epoch):
+            run(epoch, model, train_loader, criterion, optimizer,
+                use_cuda=use_cuda, tracking=train_results_file, train=True,
+                half=half)
 
-            if new_learning_rate <= min_lr:
-                return 0
+            valid_acc = run(epoch, model, valid_loader, use_cuda=use_cuda,
+                            tracking=valid_results_file, train=False,
+                            half=half)
 
-            if prev_learning_rate != new_learning_rate:
-                timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
-                config['timestamp'] = timestamp
-                config['learning_rate'] = new_learning_rate
-                config['next_epoch'] = epoch + 1
-                utils.save_config(config, run_dir)
+            if validation != 0 and track_test_acc:
+                run(epoch, model, test_loader, use_cuda=use_cuda,
+                    tracking=test_results_file, train=False)
 
-        is_best = valid_acc > best_accuracy
-        last_epoch = epoch == (end_epoch - 1)
-        if is_best or checkpoint == 'all' or (checkpoint == 'last' and last_epoch):
-            state = {
-                'epoch': epoch,
-                'arch': arch,
-                'model': (model.module if use_cuda else model).state_dict(),
-                'accuracy': valid_acc,
-                'optimizer': optimizer.state_dict()
-            }
-        if is_best:
-            print('New best model!')
-            filename = os.path.join(run_dir, 'checkpoint_best_model.t7')
-            print(f'Saving checkpoint to {filename}')
-            best_accuracy = valid_acc
-            torch.save(state, filename)
-        if checkpoint == 'all' or (checkpoint == 'last' and last_epoch):
-            filename = os.path.join(run_dir, f'checkpoint_{epoch}.t7')
-            print(f'Saving checkpoint to {filename}')
-            torch.save(state, filename)
+            if schedule:
+                prev_learning_rate = utils.get_learning_rate(optimizer)
+                scheduler.step(valid_acc)
+                new_learning_rate = utils.get_learning_rate(optimizer)
+
+                if new_learning_rate <= min_lr:
+                    return 0
+
+                if prev_learning_rate != new_learning_rate:
+                    timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
+                    config['timestamp'] = timestamp
+                    config['learning_rate'] = new_learning_rate
+                    config['next_epoch'] = epoch + 1
+                    utils.save_config(config, run_dir)
+
+            is_best = valid_acc > best_accuracy
+            last_epoch = epoch == (end_epoch - 1)
+            if is_best or checkpoint == 'all' or (checkpoint == 'last' and last_epoch):
+                state = {
+                    'epoch': epoch,
+                    'arch': arch,
+                    'model': (model.module if use_cuda else model).state_dict(),
+                    'accuracy': valid_acc,
+                    'optimizer': optimizer.state_dict()
+                }
+            if is_best:
+                print('New best model!')
+                filename = os.path.join(run_dir, 'checkpoint_best_model.t7')
+                print(f'Saving checkpoint to {filename}')
+                best_accuracy = valid_acc
+                torch.save(state, filename)
+            if checkpoint == 'all' or (checkpoint == 'last' and last_epoch):
+                filename = os.path.join(run_dir, f'checkpoint_{epoch}.t7')
+                print(f'Saving checkpoint to {filename}')
+                torch.save(state, filename)
+
+        start_epoch = end_epoch
 
 
 if __name__ == '__main__':
