@@ -199,6 +199,10 @@ def create_graph(arch, timestamp, optimizer, restore,
     print(model)
     print("{} parameters".format(utils.count_parameters(model)))
     print(f"Run directory set to {run_dir}")
+
+    # Save model text description
+    with open(os.path.join(run_dir, 'model.txt'), 'w') as file:
+        file.write(str(model))
     return run_dir, start_epoch, best_accuracy, model, optimizer
 
 
@@ -258,10 +262,6 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         weight_decay=weight_decay)
 
     utils.save_config(config, run_dir)
-
-    # Save model text description
-    with open(os.path.join(run_dir, 'model.txt'), 'w') as file:
-        file.write(str(model))
 
     if tracking:
         train_results_file = os.path.join(run_dir, 'train_results.csv')
