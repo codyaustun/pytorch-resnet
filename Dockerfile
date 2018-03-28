@@ -30,8 +30,8 @@ WORKDIR /research/github
 RUN git clone --recursive https://github.com/pytorch/pytorch
 WORKDIR /research/github/pytorch
 RUN git checkout v0.3.0
-RUN python setup.py clean
 RUN git submodule update --init
+RUN python setup.py clean
 RUN python setup.py install
 
 # Install Pytorch ResNet
