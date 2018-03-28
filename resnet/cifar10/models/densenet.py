@@ -90,19 +90,20 @@ class DenseNet(nn.Module):
         return out
 
 
-def DenseNetBC(L, k):
+def DenseNetBC(L, k, num_classes=10):
     assert (L - 4) % 6 == 0
     num_blocks = int((L - 4) / 6)
-    return DenseNet(Bottleneck, [num_blocks] * 3, growth_rate=k, reduction=0.5)
+    return DenseNet(Bottleneck, [num_blocks] * 3, growth_rate=k, reduction=0.5,
+                    num_classes=num_classes)
 
 
-def DenseNetBC100():
-    return DenseNetBC(100, 12)
+def DenseNetBC100(num_classes=10):
+    return DenseNetBC(100, 12, num_classes=num_classes)
 
 
-def DenseNetBC250():
-    return DenseNetBC(250, 24)
+def DenseNetBC250(num_classes=10):
+    return DenseNetBC(250, 24, num_classes=num_classes)
 
 
-def DenseNetBC190():
-    return DenseNetBC(190, 40)
+def DenseNetBC190(num_classes=10):
+    return DenseNetBC(190, 40, num_classes=num_classes)

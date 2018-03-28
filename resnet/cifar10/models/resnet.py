@@ -320,159 +320,179 @@ class StochasticResNet(ResNet):
                          num_classes=num_classes,
                          inplanes=inplanes)
         L = sum(layers)
-        l = 1
+        curr = 1
         for section_index in range(self.num_sections):
             section = getattr(self, f'section_{section_index}')
             for name, module in section.named_children():
                 if decay == 'linear':
-                    survival_rate = 1 - ((l / L) * (1 - min_survival_rate))
+                    survival_rate = 1 - ((curr / L) * (1 - min_survival_rate))
                 elif decay == 'uniform':
                     survival_rate = min_survival_rate
                 else:
                     raise NotImplementedError(
                         f"{decay} decay has not been implemented.")
                 module.survival_rate = survival_rate
-                l += 1
-        assert (l - 1) == L
+                curr += 1
+        assert (curr - 1) == L
 
 
 # From "Deep Residual Learning for Image Recognition"
-def ResNet20():
-    return ResNet(BasicBlock, layers=[3] * 3, filters=[16, 32, 64])
+def ResNet20(num_classes=10):
+    return ResNet(BasicBlock, layers=[3] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def ResNet32():
-    return ResNet(BasicBlock, layers=[5] * 3, filters=[16, 32, 64])
+def ResNet32(num_classes=10):
+    return ResNet(BasicBlock, layers=[5] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def ResNet44():
-    return ResNet(BasicBlock, layers=[7] * 3, filters=[16, 32, 64])
+def ResNet44(num_classes=10):
+    return ResNet(BasicBlock, layers=[7] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def ResNet56():
-    return ResNet(BasicBlock, layers=[9] * 3, filters=[16, 32, 64])
+def ResNet56(num_classes=10):
+    return ResNet(BasicBlock, layers=[9] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def ResNet110():
-    return ResNet(BasicBlock, layers=[18] * 3, filters=[16, 32, 64])
+def ResNet110(num_classes=10):
+    return ResNet(BasicBlock, layers=[18] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def ResNet1202():
-    return ResNet(BasicBlock, layers=[200] * 3, filters=[16, 32, 64])
+def ResNet1202(num_classes=10):
+    return ResNet(BasicBlock, layers=[200] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
 # From "Identity Mappings in Deep Residual Networks"
-def PreActResNet110():
-    return ResNet(PreActBlock, layers=[18] * 3, filters=[16, 32, 64])
+def PreActResNet110(num_classes=10):
+    return ResNet(PreActBlock, layers=[18] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet164():
-    return ResNet(PreActBottleneck, layers=[18] * 3, filters=[16, 32, 64])
+def PreActResNet164(num_classes=10):
+    return ResNet(PreActBottleneck, layers=[18] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet1001():
-    return ResNet(PreActBottleneck, layers=[111] * 3, filters=[16, 32, 64])
+def PreActResNet1001(num_classes=10):
+    return ResNet(PreActBottleneck, layers=[111] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
 # Based on but not in "Identity Mappings in Deep Residual Networks"
-def PreActResNet8():
-    return ResNet(PreActBlock, layers=[1] * 3, filters=[16, 32, 64])
+def PreActResNet8(num_classes=10):
+    return ResNet(PreActBlock, layers=[1] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet14():
-    return ResNet(PreActBlock, layers=[2] * 3, filters=[16, 32, 64])
+def PreActResNet14(num_classes=10):
+    return ResNet(PreActBlock, layers=[2] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet20():
-    return ResNet(PreActBlock, layers=[3] * 3, filters=[16, 32, 64])
+def PreActResNet20(num_classes=10):
+    return ResNet(PreActBlock, layers=[3] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet56():
-    return ResNet(PreActBlock, layers=[9] * 3, filters=[16, 32, 64])
+def PreActResNet56(num_classes=10):
+    return ResNet(PreActBlock, layers=[9] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
-def PreActResNet164Basic():
-    return ResNet(PreActBlock, layers=[27] * 3, filters=[16, 32, 64])
+def PreActResNet164Basic(num_classes=10):
+    return ResNet(PreActBlock, layers=[27] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
 
 
 # From "Deep Networks with Stochastic Depth"
-def StochasticResNet110():
+def StochasticResNet110(num_classes=10):
     return StochasticResNet(StochasticBlock, layers=[18] * 3,
                             filters=[16, 32, 64], min_survival_rate=0.5,
-                            decay='linear')
+                            decay='linear', num_classes=num_classes)
 
 
-def StochasticResNet1202():
+def StochasticResNet1202(num_classes=10):
     return StochasticResNet(StochasticBlock, layers=[200] * 3,
                             filters=[16, 32, 64], min_survival_rate=0.5,
-                            decay='linear')
+                            decay='linear', num_classes=num_classes)
 
 
 # Based on but not in "Deep Networks for Stochastic Depth"
-def StochasticResNet56():
+def StochasticResNet56(num_classes=10):
     return StochasticResNet(StochasticBlock, layers=[9] * 3,
                             filters=[16, 32, 64], min_survival_rate=0.5,
-                            decay='linear')
+                            decay='linear', num_classes=num_classes)
 
 
-def StochasticResNet56_08():
+def StochasticResNet56_08(num_classes=10):
     return StochasticResNet(StochasticBlock, layers=[9] * 3,
                             filters=[16, 32, 64], min_survival_rate=0.8,
-                            decay='linear')
+                            decay='linear', num_classes=num_classes)
 
 
 # From "Wide Residual Networks"
-def WRN(n, k):
+def WRN(n, k, num_classes=10):
     assert (n - 4) % 6 == 0
     base_filters = [16, 32, 64]
     filters = [num_filters * k for num_filters in base_filters]
     d = (n - 4) / 2  # l = 2
     return ResNet(PreActBlock, layers=[int(d / 3)] * 3, filters=filters,
-                  inplanes=16)
+                  inplanes=16, num_classes=num_classes)
 
 
-def WRN_40_4():
-    return WRN(40, 4)
+def WRN_40_4(num_classes=10):
+    return WRN(40, 4, num_classes=num_classes)
 
 
-def WRN_16_4():
-    return WRN(16, 4)
+def WRN_16_4(num_classes=10):
+    return WRN(16, 4, num_classes=num_classes)
 
 
-def WRN_16_8():
-    return WRN(16, 8)
+def WRN_16_8(num_classes=10):
+    return WRN(16, 8, num_classes=num_classes)
 
-def WRN_28_10():
-    return WRN(28, 10)
+
+def WRN_28_10(num_classes=10):
+    return WRN(28, 10, num_classes=num_classes)
 
 
 # From "Aggregated Residual Transformations for Deep Neural Networks"
-def ResNeXt29(cardinality, base_width):
+def ResNeXt29(cardinality, base_width, num_classes=10):
     Block = partial(ResNeXtBottleneck, cardinality=cardinality,
                     base_width=base_width)
     Block.__name__ = ResNeXtBottleneck.__name__
     Block.expansion = ResNeXtBottleneck.expansion
-    return ResNet(Block, layers=[3, 3, 3], filters=[64, 128, 256])
+    return ResNet(Block, layers=[3, 3, 3], filters=[64, 128, 256],
+                  num_classes=num_classes)
 
 
 # From kunagliu/pytorch
-def ResNet18():
-    return ResNet(BasicBlock, layers=[2, 2, 2, 2], filters=[64, 128, 256, 512])
+def ResNet18(num_classes=10):
+    return ResNet(BasicBlock, layers=[2, 2, 2, 2], filters=[64, 128, 256, 512],
+                  num_classes=num_classes)
 
 
-def ResNet34():
-    return ResNet(BasicBlock, layers=[3, 4, 6, 3], filters=[64, 128, 256, 512])
+def ResNet34(num_classes=10):
+    return ResNet(BasicBlock, layers=[3, 4, 6, 3], filters=[64, 128, 256, 512],
+                  num_classes=num_classes)
 
 
-def ResNet50():
-    return ResNet(Bottleneck, layers=[3, 4, 6, 3], filters=[64, 128, 256, 512])
+def ResNet50(num_classes=10):
+    return ResNet(Bottleneck, layers=[3, 4, 6, 3], filters=[64, 128, 256, 512],
+                  num_classes=num_classes)
 
 
-def ResNet101():
+def ResNet101(num_classes=10):
     return ResNet(Bottleneck,
-                  layers=[3, 4, 23, 3], filters=[64, 128, 256, 512])
+                  layers=[3, 4, 23, 3], filters=[64, 128, 256, 512],
+                  num_classes=num_classes)
 
 
-def ResNet152():
+def ResNet152(num_classes=10):
     return ResNet(Bottleneck,
                   layers=[3, 8, 36, 3], filters=[64, 128, 256, 512])

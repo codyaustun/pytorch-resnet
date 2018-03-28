@@ -53,8 +53,8 @@ MODELS = {
         'stochastic1202': resnet.StochasticResNet1202,
 
         # "Aggregated Residual Transformations for Deep Neural Networks"
-        'resnext29-8-64': lambda _=None: resnet.ResNeXt29(8, 64),
-        'resnext29-16-64': lambda _=None: resnet.ResNeXt29(16, 64),
+        'resnext29-8-64': lambda num_classes=10: resnet.ResNeXt29(8, 64, num_classes=num_classes),  # noqa: E501
+        'resnext29-16-64': lambda num_classes=10: resnet.ResNeXt29(16, 64, num_classes=num_classes),  # noqa: E501
 
         # "Densely Connected Convolutional Networks"
         'densenetbc100': densenet.DenseNetBC100,
@@ -154,9 +154,9 @@ def run(epoch, model, loader, criterion=None, optimizer=None, top=(1, 5),
 def create_graph(arch, timestamp, optimizer, restore,
                  learning_rate=None,
                  momentum=None,
-                 weight_decay=None):
+                 weight_decay=None, num_classes=10):
     # create model
-    model = MODELS[arch]()
+    model = MODELS[arch](num_classes=num_classes)
 
     # create optimizer
     if optimizer == 'adam':
@@ -207,7 +207,7 @@ def create_graph(arch, timestamp, optimizer, restore,
 
 
 @click.group(invoke_without_command=True)
-@click.option('--dataset-dir', default='./data/cifar10')
+@click.option('--dataset-dir', default='./data')
 @click.option('--checkpoint', '-c', type=click.Choice(['best', 'all', 'last']),
               default='last')
 @click.option('--restore', '-r')
@@ -237,13 +237,16 @@ def create_graph(arch, timestamp, optimizer, restore,
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
 @click.pass_context
-def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
-          epochs, batch_size, learning_rates, momentum, optimizer,
+def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
+          cuda, epochs, batch_size, learning_rates, momentum, optimizer,
           schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
-          half, arch):
+          half, arch, dataset='cifar10'):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
-    local_timestamp = str(datetime.now())
+    local_timestamp = str(datetime.now())  # noqa: F841
+    assert dataset in ['cifar10', 'cifar100'], "Only support CIFAR datasets"
+    dataset_dir = os.path.join(dataset_dir, dataset)
+    num_classes = 10 if dataset == 'cifar10' else 100
     config = {k: v for k, v in locals().items() if k != 'ctx'}
 
     if ctx.invoked_subcommand is not None:
@@ -259,7 +262,7 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
     run_dir, start_epoch, best_accuracy, model, optimizer = create_graph(
         arch, timestamp, optimizer, restore,
         learning_rate=learning_rate, momentum=momentum,
-        weight_decay=weight_decay)
+        weight_decay=weight_decay, num_classes=num_classes)
 
     utils.save_config(config, run_dir)
 
@@ -300,9 +303,17 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         transforms.Normalize(MEAN, STD),
     ])
 
+    if dataset == 'cifar10':
+        test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
+                                        download=True,
+                                        transform=transform_test),
+    else:
+        test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
+                                         download=True,
+                                         transform=transform_test),
+
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=dataset_dir, train=False, download=True,
-                         transform=transform_test),
+        test_dataset,
         batch_size=batch_size, shuffle=False, num_workers=num_workers,
         pin_memory=use_cuda)
 
@@ -325,8 +336,14 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
         transforms.Normalize(MEAN, STD),
     ])
 
-    train_dataset = datasets.CIFAR10(root=dataset_dir, train=True,
-                                     download=True, transform=transform_train)
+    if dataset == 'cifar10':
+        train_dataset = datasets.CIFAR10(root=dataset_dir, train=True,
+                                         download=True,
+                                         transform=transform_train)
+    else:
+        train_dataset = datasets.CIFAR100(root=dataset_dir, train=True,
+                                          download=True,
+                                          transform=transform_train)
 
     num_train = len(train_dataset)
     indices = list(range(num_train))
@@ -399,11 +416,11 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc, cuda,
 
             is_best = valid_acc > best_accuracy
             last_epoch = epoch == (end_epoch - 1)
-            if is_best or checkpoint == 'all' or (checkpoint == 'last' and last_epoch):
+            if is_best or checkpoint == 'all' or (checkpoint == 'last' and last_epoch):  # noqa: E501
                 state = {
                     'epoch': epoch,
                     'arch': arch,
-                    'model': (model.module if use_cuda else model).state_dict(),
+                    'model': (model.module if use_cuda else model).state_dict(),  # noqa: E501
                     'accuracy': valid_acc,
                     'optimizer': optimizer.state_dict()
                 }
