@@ -236,15 +236,15 @@ def create_graph(arch, timestamp, optimizer, restore,
 @click.option('--half', is_flag=True)
 @click.option('--arch', '-a', type=click.Choice(MODELS.keys()),
               default='resnet20')
-@click.option('--dataset', default='cifar10')
 @click.pass_context
 def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
           cuda, epochs, batch_size, learning_rates, momentum, optimizer,
           schedule, patience, decay_factor, min_lr, augmentation,
           device_ids, num_workers, weight_decay, validation, evaluate, shuffle,
-          half, arch, dataset):
+          half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
     local_timestamp = str(datetime.now())  # noqa: F841
+    dataset = ctx.obj['dataset'] if hasattr(ctx, 'obj') else 'cifar10'
     assert dataset in ['cifar10', 'cifar100'], "Only support CIFAR datasets"
     dataset_dir = os.path.join(dataset_dir, dataset)
     num_classes = 10 if dataset == 'cifar10' else 100
