@@ -16,8 +16,40 @@ from torchvision import datasets
 from resnet import utils
 from resnet.cifar10.models import resnet, densenet
 
+DATASETS = [
+    'cifar10', 'cifar100',
+    'svhn', 'svhn+extra',
+]
+
+# Here for legacy reasons
 MEAN = (0.4914, 0.4822, 0.4465)
 STD = (0.2023, 0.1994, 0.2010)
+
+# From resnet.tools:normalize or resnet.tools:meanstd
+MEANS = {
+    'cifar10': (0.4914, 0.4822, 0.4465),
+    'cifar100': (0.5071, 0.4866, 0.4409),
+    'svhn': (0.4377, 0.4438, 0.4728),
+    'svhn+extra': (0.4309, 0.4302, 0.4463)
+}
+
+STDS = {
+    # From resnet.tools:normalize
+    'cifar10': (0.24703223, 0.24348512, 0.26158784),
+    'cifar100': (0.26733428, 0.25643846, 0.27615047),
+
+    # From resnet.tools:meanstd
+    'svhn': (0.1201, 0.1231, 0.1052),
+    'svhn+extra': (0.1252, 0.1282, 0.1147)
+}
+
+# From resnet.tools:meanstd
+MEANSTDS = {
+    'cifar10': (0.2023, 0.1994, 0.2010),
+    'cifar100': (0.2009, 0.1984, 0.2023),
+    'svhn': (0.1201, 0.1231, 0.1052),
+    'svhn+extra': (0.1252, 0.1282, 0.1147)
+}
 
 MODELS = {
         # "Deep Residual Learning for Image Recognition"
@@ -206,6 +238,50 @@ def create_graph(arch, timestamp, optimizer, restore,
     return run_dir, start_epoch, best_accuracy, model, optimizer
 
 
+def create_test_dataset(dataset, dataset_dir, transform):
+    if dataset == 'cifar10':
+        test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
+                                        download=True,
+                                        transform=transform)
+    elif dataset == 'cifar100':
+        test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
+                                         download=True,
+                                         transform=transform)
+    elif dataset == 'svhn' or dataset == 'svhn+extra':
+        test_dataset = datasets.SVHN(root=dataset_dir, split='test',
+                                     download=True,
+                                     transform=transform)
+    return test_dataset
+
+
+def create_train_dataset(dataset, dataset_dir, transform):
+    if dataset == 'cifar10':
+        train_dataset = datasets.CIFAR10(root=dataset_dir, train=True,
+                                         download=True,
+                                         transform=transform)
+    elif dataset == 'cifar100':
+        train_dataset = datasets.CIFAR100(root=dataset_dir, train=True,
+                                          download=True,
+                                          transform=transform)
+    elif dataset == 'svhn':
+        train_dataset = datasets.SVHN(root=dataset_dir, split='train',
+                                      download=True,
+                                      transform=transform)
+    elif dataset == 'svhn+extra':
+        _train_dataset = datasets.SVHN(root=dataset_dir, split='train',
+                                       download=True,
+                                       transform=transform)
+        _extra_dataset = datasets.SVHN(root=dataset_dir, split='extra',
+                                       download=True,
+                                       transform=transform)
+        train_dataset = torch.utils.data.ConcatDataset([
+            _train_dataset,
+            _extra_dataset
+        ])
+
+    return train_dataset
+
+
 @click.group(invoke_without_command=True)
 @click.option('--dataset-dir', default='./data')
 @click.option('--checkpoint', '-c', type=click.Choice(['best', 'all', 'last']),
@@ -245,9 +321,12 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
     local_timestamp = str(datetime.now())  # noqa: F841
     dataset = ctx.obj['dataset'] if ctx.obj is not None else 'cifar10'
-    assert dataset in ['cifar10', 'cifar100'], "Only support CIFAR datasets"
-    dataset_dir = os.path.join(dataset_dir, dataset)
-    num_classes = 10 if dataset == 'cifar10' else 100
+    assert dataset in DATASETS, "Only CIFAR and SVHN supported"
+    if dataset == 'svhn+extra':
+        dataset_dir = os.path.join(dataset_dir, 'svhn')
+    else:
+        dataset_dir = os.path.join(dataset_dir, dataset)
+    num_classes = 100 if dataset == 'cifar100' else 10
     config = {k: v for k, v in locals().items() if k != 'ctx'}
 
     if ctx.invoked_subcommand is not None:
@@ -301,17 +380,10 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
     print("Preparing {} data:".format(dataset.upper()))
     transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(MEAN, STD),
+        transforms.Normalize(MEANS[dataset], STDS[dataset]),
     ])
 
-    if dataset == 'cifar10':
-        test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
-                                        download=True,
-                                        transform=transform_test)
-    else:
-        test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
-                                         download=True,
-                                         transform=transform_test)
+    test_dataset = create_test_dataset(dataset, dataset_dir, transform_test)
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
@@ -337,14 +409,7 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
         transforms.Normalize(MEAN, STD),
     ])
 
-    if dataset == 'cifar10':
-        train_dataset = datasets.CIFAR10(root=dataset_dir, train=True,
-                                         download=True,
-                                         transform=transform_train)
-    else:
-        train_dataset = datasets.CIFAR100(root=dataset_dir, train=True,
-                                          download=True,
-                                          transform=transform_train)
+    train_dataset = create_train_dataset(dataset, dataset_dir, transform_train)
 
     num_train = len(train_dataset)
     indices = list(range(num_train))
