@@ -44,6 +44,9 @@ RUN pip install -e .
 ENV LC_ALL C.UTF-8
 ENV LANG C.UTF-8
 
-WORKDIR /research
+WORKDIR /research/experiments
+RUN mkdir /research/experiments/data
+RUN mkdir /research/experiments/run
+VOLUME ["/research/experiments/run", "/research/experiments/data"]
 
 ENTRYPOINT ["cifar10", "train"]
