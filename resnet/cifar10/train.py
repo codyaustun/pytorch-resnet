@@ -242,11 +242,11 @@ def create_test_dataset(dataset, dataset_dir, transform):
     if dataset == 'cifar10':
         test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
                                         download=True,
-                                        transform=transform),
+                                        transform=transform)
     elif dataset == 'cifar100':
         test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
                                          download=True,
-                                         transform=transform),
+                                         transform=transform)
     elif dataset == 'svhn' or dataset == 'svhn+extra':
         test_dataset = datasets.SVHN(root=dataset_dir, split='test',
                                      download=True,
