@@ -244,7 +244,7 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
           half, arch):
     timestamp = "{:.0f}".format(datetime.utcnow().timestamp())
     local_timestamp = str(datetime.now())  # noqa: F841
-    dataset = ctx.obj['dataset'] if hasattr(ctx, 'obj') else 'cifar10'
+    dataset = ctx.obj['dataset'] if ctx.obj is not None else 'cifar10'
     assert dataset in ['cifar10', 'cifar100'], "Only support CIFAR datasets"
     dataset_dir = os.path.join(dataset_dir, dataset)
     num_classes = 10 if dataset == 'cifar10' else 100
@@ -307,11 +307,11 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
     if dataset == 'cifar10':
         test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
                                         download=True,
-                                        transform=transform_test),
+                                        transform=transform_test)
     else:
         test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
                                          download=True,
-                                         transform=transform_test),
+                                         transform=transform_test)
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset,
