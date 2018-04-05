@@ -1,4 +1,4 @@
-# PyTorch CLI Training ResNet Model
+# Training ResNet Models in PyTorch
 
 This project allows you to easily train ResNet models and several variants on a number of vision datasets, including CIFAR10, SVHN, and ImageNet.
 The scripts and command line are fairly comprehensive, allowing for specifying custom learning rate schedule, train/dev/test splits, and checkpointing
