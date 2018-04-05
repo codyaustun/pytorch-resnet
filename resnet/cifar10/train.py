@@ -406,7 +406,7 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
 
     transform_train = transforms.Compose(transform_train + [
         transforms.ToTensor(),
-        transforms.Normalize(MEAN, STD),
+        transforms.Normalize(MEANS[dataset], STDS[dataset]),
     ])
 
     train_dataset = create_train_dataset(dataset, dataset_dir, transform_train)
