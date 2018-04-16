@@ -422,6 +422,18 @@ def StochasticResNet1202(num_classes=10):
                             decay='linear', num_classes=num_classes)
 
 
+# From "Deep Networks with Stochastic Depth" for SVHN Experiments
+def ResNet152SVHN(num_classes=10):
+    return ResNet(BasicBlock, layers=[25] * 3, filters=[16, 32, 64],
+                  num_classes=num_classes)
+
+
+def StochasticResNet152SVHN(num_classes=10):
+    return StochasticResNet(StochasticBlock, layers=[25] * 3,
+                            filters=[16, 32, 64], min_survival_rate=0.5,
+                            decay='linear', num_classes=num_classes)
+
+
 # Based on but not in "Deep Networks for Stochastic Depth"
 def StochasticResNet56(num_classes=10):
     return StochasticResNet(StochasticBlock, layers=[9] * 3,

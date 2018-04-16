@@ -83,6 +83,8 @@ MODELS = {
         'stochastic56-08': resnet.StochasticResNet56_08,
         'stochastic110': resnet.StochasticResNet110,
         'stochastic1202': resnet.StochasticResNet1202,
+        'stocahstic152-svhn': resnet.StochasticResNet152SVHN,
+        'resnet152-svhn': resnet.ResNet152SVHN,
 
         # "Aggregated Residual Transformations for Deep Neural Networks"
         'resnext29-8-64': lambda num_classes=10: resnet.ResNeXt29(8, 64, num_classes=num_classes),  # noqa: E501
