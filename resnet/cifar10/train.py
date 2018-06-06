@@ -307,7 +307,7 @@ def create_train_dataset(dataset, dataset_dir, transform):
 @click.option('--augmentation/--no-augmentation', default=True)
 @click.option('device_ids', '--device', '-d', multiple=True, type=int)
 @click.option('--num-workers', type=int)
-@click.option('--weight-decay', default=5e-4)
+@click.option('--weight-decay', default=1e-4)
 @click.option('--validation', '-v', default=0.0)
 @click.option('--evaluate', is_flag=True)
 @click.option('--shuffle/--no-shuffle', default=True)
