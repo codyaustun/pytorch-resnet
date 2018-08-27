@@ -284,7 +284,8 @@ def create_train_dataset(dataset, dataset_dir, transform,
                                        target_transform=target_transform)
         _extra_dataset = datasets.SVHN(root=dataset_dir, split='extra',
                                        download=True,
-                                       transform=transform)
+                                       transform=transform,
+                                       target_transform=target_transform)
         train_dataset = torch.utils.data.ConcatDataset([
             _train_dataset,
             _extra_dataset
