@@ -240,39 +240,48 @@ def create_graph(arch, timestamp, optimizer, restore,
     return run_dir, start_epoch, best_accuracy, model, optimizer
 
 
-def create_test_dataset(dataset, dataset_dir, transform):
+def create_test_dataset(dataset, dataset_dir, transform,
+                        target_transform=None):
     if dataset == 'cifar10':
         test_dataset = datasets.CIFAR10(root=dataset_dir, train=False,
                                         download=True,
-                                        transform=transform)
+                                        transform=transform,
+                                        target_transform=target_transform)
     elif dataset == 'cifar100':
         test_dataset = datasets.CIFAR100(root=dataset_dir, train=False,
                                          download=True,
-                                         transform=transform)
+                                         transform=transform,
+                                         target_transform=target_transform)
     elif dataset == 'svhn' or dataset == 'svhn+extra':
         test_dataset = datasets.SVHN(root=dataset_dir, split='test',
                                      download=True,
-                                     transform=transform)
+                                     transform=transform,
+                                     target_transform=target_transform)
     return test_dataset
 
 
-def create_train_dataset(dataset, dataset_dir, transform):
+def create_train_dataset(dataset, dataset_dir, transform,
+                         target_transform=None):
     if dataset == 'cifar10':
         train_dataset = datasets.CIFAR10(root=dataset_dir, train=True,
                                          download=True,
-                                         transform=transform)
+                                         transform=transform,
+                                         target_transform=target_transform)
     elif dataset == 'cifar100':
         train_dataset = datasets.CIFAR100(root=dataset_dir, train=True,
                                           download=True,
-                                          transform=transform)
+                                          transform=transform,
+                                          target_transform=target_transform)
     elif dataset == 'svhn':
         train_dataset = datasets.SVHN(root=dataset_dir, split='train',
                                       download=True,
-                                      transform=transform)
+                                      transform=transform,
+                                      target_transform=target_transform)
     elif dataset == 'svhn+extra':
         _train_dataset = datasets.SVHN(root=dataset_dir, split='train',
                                        download=True,
-                                       transform=transform)
+                                       transform=transform,
+                                       target_transform=target_transform)
         _extra_dataset = datasets.SVHN(root=dataset_dir, split='extra',
                                        download=True,
                                        transform=transform)
