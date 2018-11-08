@@ -15,9 +15,11 @@ from torchvision import datasets
 
 from resnet import utils
 from resnet.cifar10.models import resnet, densenet
+from resnet.cifar10.datasets import CoarseCIFAR100
+
 
 DATASETS = [
-    'cifar10', 'cifar100',
+    'cifar10', 'cifar100', 'cifar20',
     'svhn', 'svhn+extra',
 ]
 
@@ -29,6 +31,7 @@ STD = (0.2023, 0.1994, 0.2010)
 MEANS = {
     'cifar10': (0.4914, 0.4822, 0.4465),
     'cifar100': (0.5071, 0.4866, 0.4409),
+    'cifar20': (0.5071, 0.4866, 0.4409),  # Same as CIFAR100
     'svhn': (0.4377, 0.4438, 0.4728),
     'svhn+extra': (0.4309, 0.4302, 0.4463)
 }
@@ -37,6 +40,7 @@ STDS = {
     # From resnet.tools:normalize
     'cifar10': (0.24703223, 0.24348512, 0.26158784),
     'cifar100': (0.26733428, 0.25643846, 0.27615047),
+    'cifar20': (0.26733428, 0.25643846, 0.27615047),  # Same as CIFAR100
 
     # From resnet.tools:meanstd
     'svhn': (0.1201, 0.1231, 0.1052),
@@ -252,6 +256,10 @@ def create_test_dataset(dataset, dataset_dir, transform,
                                          download=True,
                                          transform=transform,
                                          target_transform=target_transform)
+    elif dataset == 'cifar20':
+        test_dataset = CoarseCIFAR100(root=dataset_dir, train=False,
+                                      download=True, transform=transform,
+                                      target_transform=target_transform)
     elif dataset == 'svhn' or dataset == 'svhn+extra':
         test_dataset = datasets.SVHN(root=dataset_dir, split='test',
                                      download=True,
@@ -272,6 +280,10 @@ def create_train_dataset(dataset, dataset_dir, transform,
                                           download=True,
                                           transform=transform,
                                           target_transform=target_transform)
+    elif dataset == 'cifar20':
+        train_dataset = CoarseCIFAR100(root=dataset_dir, train=True,
+                                       download=True, transform=transform,
+                                       target_transform=target_transform)
     elif dataset == 'svhn':
         train_dataset = datasets.SVHN(root=dataset_dir, split='train',
                                       download=True,
@@ -334,11 +346,20 @@ def train(ctx, dataset_dir, checkpoint, restore, tracking, track_test_acc,
     local_timestamp = str(datetime.now())  # noqa: F841
     dataset = ctx.obj['dataset'] if ctx.obj is not None else 'cifar10'
     assert dataset in DATASETS, "Only CIFAR and SVHN supported"
+
     if dataset == 'svhn+extra':
         dataset_dir = os.path.join(dataset_dir, 'svhn')
+    elif dataset == 'cifar20':
+        dataset_dir = os.path.join(dataset_dir, 'cifar100')
     else:
         dataset_dir = os.path.join(dataset_dir, dataset)
-    num_classes = 100 if dataset == 'cifar100' else 10
+
+    if dataset == 'cifar100':
+        num_classes = 100
+    elif dataset == 'cifar20':
+        num_classes = 20
+    else:
+        num_classes = 10
     config = {k: v for k, v in locals().items() if k != 'ctx'}
 
     if ctx.invoked_subcommand is not None:
