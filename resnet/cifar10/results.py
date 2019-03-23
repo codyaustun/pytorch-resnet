@@ -1,5 +1,6 @@
 import os
 import json
+from collections import defaultdict
 
 import pandas as pd
 
@@ -10,16 +11,22 @@ from resnet.utils import count_parameters
 MODEL_SIZES = {key: count_parameters(MODELS[key]()) for key in MODELS.keys()}
 
 
-def single_run_acc(df):
+def single_run_acc(df, key='epoch'):
     df = df.copy()
-    df['duration'] = (df['timestamp'] - df['prev_timestamp']).apply(lambda x: x.total_seconds())
-    df['batch_duration'] = df['batch_duration'].apply(lambda x: x.total_seconds())
+    if 'prev_timestamp' in df:
+        df['duration'] = (df['timestamp'] - df['prev_timestamp']).apply(lambda x: x.total_seconds())  # noqa: E501
+    df['batch_duration'] = df['batch_duration'].apply(lambda x: x.total_seconds())  # noqa: E501
 
-    tmp = df.loc[:, ['epoch', 'batch_size', 'ncorrect', 'duration', 'batch_duration']].groupby('epoch').sum()
+    _columns = [key, 'batch_size', 'ncorrect', 'batch_duration']
+    if 'prev_timestamp' in df:
+        _columns += ['duration']
+
+    tmp = df.loc[:, _columns].groupby(key).sum()
     tmp['accuracy'] = tmp['ncorrect'] / tmp['batch_size']
-    tmp['throughput'] = tmp['batch_size'] / tmp['duration']
     tmp['_throughput'] = tmp['batch_size'] / tmp['batch_duration']
-    tmp['elapsed'] = df.groupby('epoch')['elapsed'].agg('max')
+    if 'prev_timestamp' in df:
+        tmp['throughput'] = tmp['batch_size'] / tmp['duration']
+    tmp['elapsed'] = df.groupby(key)['elapsed'].agg('max')
     tmp.reset_index(inplace=True)
 
     return tmp
@@ -36,92 +43,90 @@ def load_file(file, start_timestamp=None):
     return df
 
 
-def load_data(directory, verbose=True):
-    train_file = os.path.join(directory, 'train_results.csv')
-    train = load_file(train_file)
-    start_timestamp = train['timestamp'].iloc[0]
+def load_data(directory, verbose=True, key='epoch', prev_timestamp=True,
+              splits=('train', 'valid', 'test')):
 
-    if verbose:
-        print(train_file)
-        print("Training results shape: {}".format(train.shape))
+    # Put train first if prev_timestamp is true
+    frames = []
+    start_timestamp = None
+    for index, split in enumerate(splits):
+        try:
+            path = os.path.join(directory, '{}_results.csv'.format(split))
+            data = load_file(path, start_timestamp=start_timestamp)
+            data['mode'] = split
+            frames.append(data)
+            if prev_timestamp and index == 0:
+                start_timestamp = data['timestamp'].iloc[0]
+            if verbose:
+                print(path)
+                print("{} results shape: {}".format(split, data.shape))
+        except FileNotFoundError:
+            if verbose:
+                print("{} split doesn't exist: {}".format(split, path))
 
-    valid_file = os.path.join(directory, 'valid_results.csv')
-    valid = load_file(valid_file, start_timestamp=start_timestamp)
+    if len(frames) > 0:
+        combined = pd.concat(frames, ignore_index=True).sort_values(by='timestamp')  # noqa: E501
+        combined['prev_timestamp'] = combined['timestamp'].shift(1)
+        combined.loc[0, 'prev_timestamp'] = combined.loc[0, 'timestamp'] - combined.loc[0, 'batch_duration']  # noqa: E501
 
-    if verbose:
-        print(valid_file)
-        print("Validation results shape: {}".format(valid.shape))
+        result = {}
+        for split in combined['mode'].unique():
+            data = combined[combined['mode'] == split].copy()
+            result[split] = single_run_acc(data, key=key)
 
-    try:
-        test_file = os.path.join(directory, 'test_results.csv')
-        test = load_file(test_file, start_timestamp=start_timestamp)
-
-        if verbose:
-            print(test_file)
-            print('Test results shape: {}'.format(test.shape))
-    except FileNotFoundError:
-        test = None
-
-
-    train['mode'] = 'train'
-    valid['mode'] = 'valid'
-
-    if test is not None:
-        test['mode'] = 'test'
-
-    combined = pd.concat([train, valid, test], ignore_index=True).sort_values(by=['timestamp'])
-    combined['prev_timestamp'] = combined['timestamp'].shift(1)
-    combined.loc[0, 'prev_timestamp'] = combined.loc[0, 'timestamp'] - combined.loc[0, 'batch_duration']
-    train = combined[combined['mode'] == 'train'].copy()
-    valid = combined[combined['mode'] == 'valid'].copy()
-
-    if test is not None:
-        test = combined[combined['mode'] == 'test'].copy()
-    else:
-        test = combined[combined['mode'] == 'valid'].copy()
-
-    return single_run_acc(train), single_run_acc(valid), single_run_acc(test)
+        return result
+    return {}
 
 
-def load_multiple(directory, timestamps=None, verbose=False):
+def load_multiple(directory, timestamps=None, verbose=False, key='epoch',
+                  unpack=True,
+                  prev_timestamp=True, splits=('train', 'valid', 'test')):
+
     timestamps = timestamps or os.listdir(directory)
-    train_sets = []
-    test_sets = []
+    results = defaultdict(list)
     for timestamp in sorted(timestamps):
         _dir = os.path.join(directory, timestamp)
-        train, valid, test = load_data(_dir, verbose=verbose)
-        if verbose:
-            print()
-        train['run'] = _dir
-        test['run'] = _dir
-        train['job_start'] = timestamp
-        test['job_start'] = timestamp
-        train_sets.append(train)
-        test_sets.append(test)
+        result = load_data(_dir, verbose=verbose, key=key, splits=splits,
+                           prev_timestamp=prev_timestamp)
+        for split, data in result.items():
+            data['run'] = _dir
+            data['job_start'] = timestamp
+            results[split].append(data)
 
-    return pd.concat(train_sets), pd.concat(test_sets)
+    results = {split: pd.concat(frames) for split, frames in results.items()}
+    if unpack:
+        # For backwards compatibility
+        return results['train'], results['test']
+    else:
+        return results
 
 
-def load_multiple_models(directory, verbose=False):
+def load_multiple_models(directory, verbose=False, key='epoch',
+                         unpack=True,
+                         prev_timestamp=True,
+                         splits=('train', 'valid', 'test')):
     paths = os.listdir(directory)
-    models = [path for path in paths if path in MODELS]
 
-    train_sets = []
-    test_sets = []
-    for model in sorted(models):
+    results = defaultdict(list)
+    for model in sorted(paths):
         if verbose:
             print(f"Loading {model}")
         _dir = os.path.join(directory, model)
-        train, test = load_multiple(_dir, verbose=verbose)
-        train['model'] = model
-        train['nparameters'] = MODEL_SIZES[model]
-        test['model'] = model
-        test['nparameters'] = MODEL_SIZES[model]
+        model_result = load_multiple(_dir, verbose=verbose, splits=splits,
+                                     key=key, prev_timestamp=prev_timestamp,
+                                     unpack=False)
+        for split, data in model_result.items():
+            data['model'] = model
+            if model in MODELS:
+                data['nparameters'] = MODEL_SIZES[model]
+            results[split].append(data)
 
-        train_sets.append(train)
-        test_sets.append(test)
-
-    return pd.concat(train_sets), pd.concat(test_sets)
+    results = {split: pd.concat(frames) for split, frames in results.items()}
+    if unpack:
+        # For backwards compatibility
+        return results['train'], results['test']
+    else:
+        return results
 
 
 def concat_update(existing, other, repeat=False):
